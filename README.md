@@ -1,1 +1,1 @@
-# camera-switch
+# Camera switch
