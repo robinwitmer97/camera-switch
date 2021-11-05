@@ -2,6 +2,7 @@ import cv2
 import pyvirtualcam
 import time
 import mediapipe as mp
+from threading import Lock, Thread
 
 # Webcam switcher based on face-detection
 # By group 3 - Robin Witmer, Alexandru Malgras and Jelle Schroijen
@@ -42,11 +43,30 @@ standing = False
 
 # Initialization
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-input_1 = cv2.VideoCapture(2)
-input_2 = cv2.VideoCapture(3)
+input_1 = cv2.VideoCapture(0) # cv2.VideoCapture('D:\\Users\\Jelle\\Videos\\scenario1\\cam_video.mp4')
+input_2 = cv2.VideoCapture(2)
 standingTIme = 0
 sittingTIme = 0
 framecount = 0
+
+image = None
+standing = False
+stop = False
+
+def detectPose():
+    global image, standing, stop
+    with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5, enable_segmentation=True) as holistic:
+        while not stop:
+            results = holistic.process(image)
+            if results.face_landmarks != None :
+                print(results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y)
+                if results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].visibility >0.9 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].visibility  >0.9 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y <0.4 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y <0.4 :
+                    #print('Standing')    
+                    standing = True
+                else:
+                    standing = False
+
+detector = Thread(target = detectPose)
 
 with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps=output_fps) as output:
     print(f'Using output device: {output.device}')
@@ -61,64 +81,11 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
         #grayscale = cv2.cvtColor(frame_1, cv2.COLOR_BGR2GRAY) # Convert into grayscale
         #faces = face_cascade.detectMultiScale(grayscale, 1.1, 4) # Apply cascade
         image = cv2.cvtColor(frame_1, cv2.COLOR_BGR2RGB)
-        if framecount >0:
-            
-            with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5, enable_segmentation=True) as holistic:
-    
-                #ret, frame = cap.read()
-                #standing = False
-                # Recolor Feed
-                
-                #image = cv2.imread('presenting.png',cv2.COLOR_BGR2RGB )
-                # Make Detections
-                results = holistic.process(image)
-                # print(results.face_landmarks)
-                
-                # face_landmarks, pose_landmarks, left_hand_landmarks, right_hand_landmarks
-                
-                # Recolor image back to BGR for rendering
-                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-                
-                # 1. Draw face landmarks
-                mp_drawing.draw_landmarks(image, results.face_landmarks, mp_holistic.FACEMESH_TESSELATION, 
-                                          mp_drawing.DrawingSpec(color=(80,110,10), thickness=1, circle_radius=1),
-                                          mp_drawing.DrawingSpec(color=(80,256,121), thickness=1, circle_radius=1)
-                                          )
-        
-                # 2. Right hand
-                mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS, 
-                                          mp_drawing.DrawingSpec(color=(80,22,10), thickness=2, circle_radius=4),
-                                          mp_drawing.DrawingSpec(color=(80,44,121), thickness=2, circle_radius=2)
-                                          )
-
-                # 3. Left Hand
-                mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS, 
-                                          mp_drawing.DrawingSpec(color=(121,22,76), thickness=2, circle_radius=4),
-                                          mp_drawing.DrawingSpec(color=(121,44,250), thickness=2, circle_radius=2)
-                                          )
-
-                # 4. Pose Detections
-                mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS, 
-                                         mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=4),
-                                          mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
-                                          )
-                
-                image_hight, image_width, _ = image.shape
-               
-                if results.face_landmarks != None :
-                     print(results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y )
-                     if results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].visibility >0.9 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].visibility  >0.9 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y <0.4 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y <0.4 :
-                         #print('Standing')    
-                         standing = True
-                     else:
-                         standing = False
-                         
-                framecount = 0;
-        else:
-                framecount = 1;
+        if not detector.is_alive():
+            detector.start()
                 
         # Set the output frame
-        #output_frame = cv2.resize(frame_2, (output_size_width, output_size_height))
+        output_frame = cv2.resize(frame_2, (output_size_width, output_size_height))
         output_camera = 'Camera 2'
         time_now_ms = int(time.time() * 1000.0)
         if standing:
@@ -144,7 +111,7 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
         if (preview_enabled):
             # Resize to match
             max_height = max(img.shape[0] for img in [frame_1, frame_2])
-            frame_1 = cv2.resize(image, (int(frame_1.shape[1] * (max_height / frame_1.shape[0])), max_height))
+            frame_1 = cv2.resize(frame_1, (int(frame_1.shape[1] * (max_height / frame_1.shape[0])), max_height))
             frame_2 = cv2.resize(frame_2, (int(frame_2.shape[1] * (max_height / frame_2.shape[0])), max_height))
 
             # Draw rectangle around the faces
@@ -183,4 +150,5 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
 # When everything is done, close related windows
 input_1.release()
 input_2.release()
+stop = True
 cv2.destroyAllWindows()
