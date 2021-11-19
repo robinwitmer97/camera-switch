@@ -44,7 +44,7 @@ standing = False
 # Initialization
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 input_1 = cv2.VideoCapture(0) # cv2.VideoCapture('D:\\Users\\Jelle\\Videos\\scenario1\\cam_video.mp4')
-input_2 = cv2.VideoCapture(2)
+input_2 = cv2.VideoCapture(1)
 standingTIme = 0
 sittingTIme = 0
 framecount = 0
@@ -55,16 +55,17 @@ stop = False
 
 def detectPose():
     global image, standing, stop
+    standing = False
     with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5, enable_segmentation=True) as holistic:
         while not stop:
             results = holistic.process(image)
-            if results.face_landmarks != None :
-                print(results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y)
-                if results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].visibility >0.9 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].visibility  >0.9 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y <0.4 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y <0.4 :
-                    #print('Standing')    
-                    standing = True
-                else:
-                    standing = False
+            #if results.face_landmarks != None :
+            print(results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y)
+            if results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].visibility >0.9 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].visibility  >0.9 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y <0.4 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y <0.4 :
+                #print('Standing')    
+                standing = True
+            else:
+                standing = False
 
 detector = Thread(target = detectPose)
 
@@ -78,8 +79,8 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
         ret_2, frame_2 = input_2.read()
         
         # Try to detect faces
-        #grayscale = cv2.cvtColor(frame_1, cv2.COLOR_BGR2GRAY) # Convert into grayscale
-        #faces = face_cascade.detectMultiScale(grayscale, 1.1, 4) # Apply cascade
+        grayscale = cv2.cvtColor(frame_1, cv2.COLOR_BGR2GRAY) # Convert into grayscale
+        faces = face_cascade.detectMultiScale(grayscale, 1.1, 4) # Apply cascade
         image = cv2.cvtColor(frame_1, cv2.COLOR_BGR2RGB)
         if not detector.is_alive():
             detector.start()
@@ -115,9 +116,9 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
             frame_2 = cv2.resize(frame_2, (int(frame_2.shape[1] * (max_height / frame_2.shape[0])), max_height))
 
             # Draw rectangle around the faces
-            #if (preview_draw_rectangles):
-            #    for (x, y, w, h) in faces:
-            #        cv2.rectangle(frame_1, (x, y), (x+w, y+h), preview_rectangle_color, 2)
+            if (preview_draw_rectangles):
+                for (x, y, w, h) in faces:
+                    cv2.rectangle(frame_1, (x, y), (x+w, y+h), preview_rectangle_color, 2)
             
             # Show camera names
             if (preview_camera_names):
