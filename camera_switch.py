@@ -44,10 +44,9 @@ standing = False
 # Initialization
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 input_1 = cv2.VideoCapture(0) # cv2.VideoCapture('D:\\Users\\Jelle\\Videos\\scenario1\\cam_video.mp4')
-input_2 = cv2.VideoCapture(1)
+input_2 = cv2.VideoCapture(2)
 standingTIme = 0
 sittingTIme = 0
-lastDetected = 0
 framecount = 0
 
 image = None
@@ -55,20 +54,18 @@ standing = False
 stop = False
 
 def detectPose():
-    global image, standing, stop, lastDetected
+    global image, standing, stop
     with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5, enable_segmentation=True) as holistic:
         while not stop:
             results = holistic.process(image)
-            if results.pose_landmarks != None :
-                lastDetected = int(time.time() * 1000.0)
-                #print(lastDetected)
+            if results.face_landmarks != None :
                 print(results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y)
                 if results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].visibility >0.9 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].visibility  >0.9 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y <0.4 and results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y <0.4 :
                     #print('Standing')    
                     standing = True
                 else:
                     standing = False
-                    
+
 detector = Thread(target = detectPose)
 
 with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps=output_fps) as output:
@@ -81,8 +78,8 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
         ret_2, frame_2 = input_2.read()
         
         # Try to detect faces
-        grayscale = cv2.cvtColor(frame_1, cv2.COLOR_BGR2GRAY) # Convert into grayscale
-        faces = face_cascade.detectMultiScale(grayscale, 1.1, 4) # Apply cascade
+        #grayscale = cv2.cvtColor(frame_1, cv2.COLOR_BGR2GRAY) # Convert into grayscale
+        #faces = face_cascade.detectMultiScale(grayscale, 1.1, 4) # Apply cascade
         image = cv2.cvtColor(frame_1, cv2.COLOR_BGR2RGB)
         if not detector.is_alive():
             detector.start()
@@ -102,9 +99,7 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
         if sittingTIme >= (time_now_ms - output_switch_delay):
             output_frame = cv2.resize(frame_2, (output_size_width, output_size_height))
             output_camera = 'Camera 2'
-        if lastDetected < (time_now_ms - 5000):
-            output_frame = cv2.resize(frame_2, (output_size_width, output_size_height))
-            output_camera = 'Camera 2'
+        
         # Show camera name
         if (output_camera_name):
             output_frame = cv2.putText(output_frame, output_camera, (50, 50), camera_name_font_family, camera_name_font_scale, camera_name_font_color, 1, cv2.LINE_AA)
@@ -120,9 +115,9 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
             frame_2 = cv2.resize(frame_2, (int(frame_2.shape[1] * (max_height / frame_2.shape[0])), max_height))
 
             # Draw rectangle around the faces
-            if (preview_draw_rectangles):
-                for (x, y, w, h) in faces:
-                    cv2.rectangle(frame_1, (x, y), (x+w, y+h), preview_rectangle_color, 2)
+            #if (preview_draw_rectangles):
+            #    for (x, y, w, h) in faces:
+            #        cv2.rectangle(frame_1, (x, y), (x+w, y+h), preview_rectangle_color, 2)
             
             # Show camera names
             if (preview_camera_names):
@@ -135,9 +130,6 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
                     frame_1 = cv2.copyMakeBorder(frame_1, 10, 10, 10, 10, cv2.BORDER_CONSTANT, value=preview_highlight_color)
                     frame_2 = cv2.copyMakeBorder(frame_2, 10, 10, 10, 10, cv2.BORDER_CONSTANT, value=(0, 0, 0))
                 else:
-                    frame_1 = cv2.copyMakeBorder(frame_1, 10, 10, 10, 10, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-                    frame_2 = cv2.copyMakeBorder(frame_2, 10, 10, 10, 10, cv2.BORDER_CONSTANT, value=preview_highlight_color)
-                if lastDetected < (time_now_ms - 5000):
                     frame_1 = cv2.copyMakeBorder(frame_1, 10, 10, 10, 10, cv2.BORDER_CONSTANT, value=(0, 0, 0))
                     frame_2 = cv2.copyMakeBorder(frame_2, 10, 10, 10, 10, cv2.BORDER_CONSTANT, value=preview_highlight_color)
             else:
