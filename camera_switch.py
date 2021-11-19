@@ -43,8 +43,8 @@ standing = False
 
 # Initialization
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-input_1 = cv2.VideoCapture(0) # cv2.VideoCapture('D:\\Users\\Jelle\\Videos\\scenario1\\cam_video.mp4')
-input_2 = cv2.VideoCapture(1)
+input_1 = cv2.VideoCapture('D:/University/Embedded/camera-switch/scenario1/scenario1/cam_video.mp4')
+input_2 = cv2.VideoCapture('D:/University/Embedded/camera-switch/scenario1/scenario1/cam_video1.mp4')
 standingTIme = 0
 sittingTIme = 0
 lastDetected = 0
@@ -71,6 +71,37 @@ def detectPose():
                     
 detector = Thread(target = detectPose)
 
+def image_resize(image, width = None, height = None, inter = cv2.INTER_AREA):
+    # initialize the dimensions of the image to be resized and
+    # grab the image size
+    dim = None
+    (h, w) = image.shape[:2]
+
+    # if both the width and height are None, then return the
+    # original image
+    if width is None and height is None:
+        return image
+
+    # check to see if the width is None
+    if width is None:
+        # calculate the ratio of the height and construct the
+        # dimensions
+        r = height / float(h)
+        dim = (int(w * r), height)
+
+    # otherwise, the height is None
+    else:
+        # calculate the ratio of the width and construct the
+        # dimensions
+        r = width / float(w)
+        dim = (width, int(h * r))
+
+    # resize the image
+    resized = cv2.resize(image, dim, interpolation = inter)
+
+    # return the resized image
+    return resized
+
 with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps=output_fps) as output:
     print(f'Using output device: {output.device}')
 
@@ -88,7 +119,7 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
             detector.start()
                 
         # Set the output frame
-        output_frame = cv2.resize(frame_2, (output_size_width, output_size_height))
+        output_frame = image_resize(frame_2, output_size_width, output_size_height)
         output_camera = 'Camera 2'
         time_now_ms = int(time.time() * 1000.0)
         if standing:
@@ -154,6 +185,8 @@ with pyvirtualcam.Camera(width=output_size_width, height=output_size_height, fps
 
         # Wait for next frame
         output.sleep_until_next_frame()
+
+
 
 # When everything is done, close related windows
 input_1.release()
